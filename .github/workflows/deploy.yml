@@ -1,0 +1,42 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  REGISTRY: gcr.io
+  IMAGE_NAME: sidecar
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
+          docker build -t $IMAGE .
+          docker push $IMAGE
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy sidecar \
+            --image ${{ env.IMAGE }} \
+            --platform managed \
+            --region us-central1 \
+            --no-allow-unauthenticated \
+            --set-env-vars JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},BITWARDEN_SM_TOKEN=${{ secrets.BITWARDEN_SM_TOKEN }}
