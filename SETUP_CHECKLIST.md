@@ -17,7 +17,8 @@ Track your progress deploying Sidecar locally and to your VM.
 - [ ] Create a project (e.g., "Sidecar")
 - [ ] Create a Service Account
 - [ ] Generate and save Access Token (keep safe!)
-- [ ] Create secrets for each API:
+- [ ] Create secrets in Bitwarden Secrets Manager:
+  - [ ] `jwt-secret` → a random 32+ char secret (generate: `python -c "import secrets; print(secrets.token_hex(32))"`)
   - [ ] `claude` → your Anthropic API key
   - [ ] `openai` → your OpenAI API key (if needed)
   - [ ] `gcp` → your GCP service account JSON (if needed)
@@ -28,39 +29,33 @@ Track your progress deploying Sidecar locally and to your VM.
 
 On your `miss-minutes` VM (via `gcloud compute ssh miss-minutes --zone us-west1-b`):
 
-1. [ ] Generate JWT secret:
+1. [ ] Run deployment script with Bitwarden token:
    ```bash
-   python -c "import secrets; print(secrets.token_hex(32))"
-   ```
-
-2. [ ] Run deployment script:
-   ```bash
-   bash <(curl -s https://raw.githubusercontent.com/lazo99/sidecar/master/deploy-vm.sh)
+   BITWARDEN_SM_TOKEN=<your-token> bash <(curl -s https://raw.githubusercontent.com/lazo99/sidecar/master/deploy-vm.sh)
    ```
    Or:
    ```bash
    git clone https://github.com/lazo99/sidecar.git /tmp/sidecar-setup
    cd /tmp/sidecar-setup
-   bash deploy-vm.sh
+   BITWARDEN_SM_TOKEN=<your-token> bash deploy-vm.sh
    ```
 
-3. [ ] When prompted, edit `.env` at `/opt/sidecar/.env`:
-   ```env
-   JWT_SECRET_KEY=<generated-secret-from-step-1>
-   BITWARDEN_SM_TOKEN=<token-from-phase-2>
-   BITWARDEN_API_URL=https://api.bitwarden.us
-   PORT=8000
-   ```
+2. [ ] Script will:
+   - Install `bws` CLI
+   - Clone sidecar repo to `/opt/sidecar`
+   - Create `.env` with your `BITWARDEN_SM_TOKEN`
+   - Create systemd service
 
-4. [ ] Verify service is running:
+3. [ ] Verify service is running:
    ```bash
    sudo systemctl status sidecar
    curl http://localhost:8000/health
    ```
 
-5. [ ] View logs:
+4. [ ] Check logs (watch for JWT secret fetched from Bitwarden):
    ```bash
    sudo journalctl -u sidecar -f
+   # Should show: "✓ JWT secret loaded from Bitwarden"
    ```
 
 ## ⏳ Phase 4: Local Integration (Your Action)

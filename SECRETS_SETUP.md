@@ -5,7 +5,7 @@ This guide covers setting up Bitwarden Secrets Manager for Sidecar.
 ## Prerequisites
 
 1. Bitwarden account (free or paid)
-2. Bitwarden CLI tool installed locally
+2. Bitwarden Secrets Manager CLI (`bws`) — installed automatically by deploy script
 
 ## Step 1: Set Up Bitwarden Secrets Manager
 
@@ -16,6 +16,21 @@ This guide covers setting up Bitwarden Secrets Manager for Sidecar.
    - Click your profile → **Service Accounts**
    - Create a new Service Account
    - Generate an access token (copy and save securely)
+
+## Step 1.5: Create JWT Secret in Bitwarden
+
+This is Sidecar's own secret (not an API key):
+
+1. In Bitwarden Secrets Manager, click **Create secret**
+2. Set:
+   - **Name**: `jwt-secret`
+   - **Value**: Generate a random 32+ character string:
+     ```bash
+     python -c "import secrets; print(secrets.token_hex(32))"
+     ```
+   - Click **Save**
+
+The `jwt-secret` is fetched at Sidecar startup via `bws` CLI.
 
 ## Step 2: Create Secrets in Bitwarden
 
@@ -48,10 +63,10 @@ Create `.env` (or set in production):
 
 ```env
 BITWARDEN_SM_TOKEN=<your-access-token>
-BITWARDEN_API_URL=https://api.bitwarden.us
-JWT_SECRET_KEY=<min-32-character-secret>
 PORT=8000
 ```
+
+That's it! Sidecar fetches `jwt-secret` from Bitwarden at startup.
 
 ### For Local Development
 
@@ -59,25 +74,47 @@ PORT=8000
 cp .env.example .env
 # Edit .env and fill in:
 # - BITWARDEN_SM_TOKEN from step 1
-# - JWT_SECRET_KEY (generate one: python -c "import secrets; print(secrets.token_hex(32))")
 ```
+
+Then:
+```bash
+# Ensure bws CLI is installed
+curl -fsSL https://vault.bitwarden.com/download/sm/bws/linux | bash
+sudo mv bws /usr/local/bin/
+
+# Run server (fetches jwt-secret from Bitwarden)
+python -m src.server
+```
+
+### For VM Deployment
+
+The `deploy-vm.sh` script handles everything:
+
+```bash
+BITWARDEN_SM_TOKEN=<your-token> bash deploy-vm.sh
+```
+
+It:
+- Installs `bws` CLI
+- Sets up `.env` with your token
+- Creates systemd service
+- Starts Sidecar (which fetches jwt-secret from Bitwarden)
 
 ### For Production (Cloud Run)
 
-Store secrets in Google Secret Manager:
+Store only the Bitwarden token in Google Secret Manager:
 
 ```bash
-# Create secrets in Google Secret Manager
+# Create secret in Google Secret Manager
 echo -n "your-bitwarden-token" | gcloud secrets create BITWARDEN_SM_TOKEN --data-file=-
-echo -n "your-jwt-secret" | gcloud secrets create JWT_SECRET_KEY --data-file=-
 
-# Deploy with secret references
+# Deploy with secret reference
 gcloud run deploy sidecar \
   --image gcr.io/your-project/sidecar \
-  --set-env-vars \
-    BITWARDEN_SM_TOKEN=from_secret:BITWARDEN_SM_TOKEN,\
-    JWT_SECRET_KEY=from_secret:JWT_SECRET_KEY
+  --set-env-vars BITWARDEN_SM_TOKEN=from_secret:BITWARDEN_SM_TOKEN
 ```
+
+Cloud Run must have `bws` CLI installed in Dockerfile (deploy script handles this).
 
 ## Step 4: Verify Setup
 

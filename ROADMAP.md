@@ -12,6 +12,7 @@
 
 ## v0.2 (Beta)
 
+- [x] JWT secret fetched from Bitwarden (zero-copy security)
 - [ ] Admin-only authorization checks (separate admin token)
 - [ ] Key rotation API with timestamp tracking
 - [ ] Multi-tenancy support (key access control per user)
@@ -20,6 +21,7 @@
 - [ ] Metrics endpoint (request counts, latencies)
 - [ ] Improved error handling & retry logic
 - [ ] Database for audit log persistence (vs JSONL)
+- [ ] JWT secret rotation without restart (reload from Bitwarden)
 
 ## v0.3 (Production)
 

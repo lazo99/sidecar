@@ -10,6 +10,7 @@ from .auth import AuthManager
 from .keys import KeyStore
 from .proxy import APIProxy
 from .audit import AuditLog
+from .bws_client import BWSClient
 
 
 app = FastAPI(
@@ -22,7 +23,30 @@ app = FastAPI(
 key_store = KeyStore()
 audit_log = AuditLog()
 api_proxy = APIProxy(key_store, audit_log)
-auth_manager = AuthManager()
+
+# Initialize AuthManager with JWT secret from Bitwarden or env
+def _get_jwt_secret() -> str:
+    """Fetch JWT secret from Bitwarden or environment."""
+    # Try Bitwarden first (preferred)
+    if os.getenv("BITWARDEN_SM_TOKEN"):
+        try:
+            bws = BWSClient()
+            secret = bws.get_secret("jwt-secret")
+            if secret:
+                print("✓ JWT secret loaded from Bitwarden")
+                return secret
+        except Exception as e:
+            print(f"⚠️  Failed to fetch JWT secret from Bitwarden: {e}")
+            print("   Falling back to JWT_SECRET_KEY env var")
+
+    # Fallback to env var (for testing or if Bitwarden unavailable)
+    secret = os.getenv("JWT_SECRET_KEY")
+    if not secret:
+        raise ValueError("JWT secret not found in Bitwarden or JWT_SECRET_KEY env var")
+    return secret
+
+jwt_secret = _get_jwt_secret()
+auth_manager = AuthManager(secret_key=jwt_secret)
 
 
 # Dependency: extract and verify JWT from Authorization header

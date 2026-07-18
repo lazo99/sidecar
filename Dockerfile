@@ -2,7 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install bws CLI (Bitwarden Secrets Manager)
+RUN curl -fsSL https://vault.bitwarden.com/download/sm/bws/linux | bash \
+    && mv bws /usr/local/bin/
+
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -18,7 +22,7 @@ ENV PORT=8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:${PORT}/health')"
+    CMD python -c "import httpx; httpx.get('http://localhost:${PORT}/health')" || exit 1
 
 # Run the server
 CMD ["python", "-m", "src.server"]

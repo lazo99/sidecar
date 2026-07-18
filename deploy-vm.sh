@@ -8,6 +8,16 @@ REPO_URL="https://github.com/lazo99/sidecar.git"
 INSTALL_DIR="/opt/sidecar"
 SERVICE_NAME="sidecar"
 
+# Step 0: Install bws CLI
+echo "📥 Installing Bitwarden Secrets Manager CLI..."
+if ! command -v bws &> /dev/null; then
+    curl -fsSL https://vault.bitwarden.com/download/sm/bws/linux | bash
+    sudo mv bws /usr/local/bin/
+    bws --version
+else
+    echo "✓ bws already installed"
+fi
+
 # Step 1: Clone/update repo
 echo "📦 Cloning repository..."
 if [ -d "$INSTALL_DIR" ]; then
@@ -26,16 +36,23 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -q -r requirements.txt
 
-# Step 3: Create .env
+# Step 3: Create .env with Bitwarden token only
 echo "🔐 Setting up environment..."
 if [ ! -f .env ]; then
     cp .env.example .env
-    echo ""
-    echo "⚠️  Edit .env with your configuration:"
-    echo "   - JWT_SECRET_KEY (generate: python -c \"import secrets; print(secrets.token_hex(32))\")"
-    echo "   - BITWARDEN_SM_TOKEN (from Bitwarden Secrets Manager)"
-    echo ""
-    read -p "Press Enter after editing .env..."
+
+    # If BITWARDEN_SM_TOKEN is set as env var, use it
+    if [ -z "$BITWARDEN_SM_TOKEN" ]; then
+        echo ""
+        echo "⚠️  Edit .env and add your BITWARDEN_SM_TOKEN"
+        echo "   (Get it from https://vault.bitwarden.com/sm/)"
+        echo ""
+        read -p "Press Enter after editing .env..."
+    else
+        # Replace placeholder with actual token
+        sed -i "s/BITWARDEN_SM_TOKEN=.*/BITWARDEN_SM_TOKEN=$BITWARDEN_SM_TOKEN/" .env
+        echo "✓ BITWARDEN_SM_TOKEN configured from environment"
+    fi
 else
     echo "✓ .env already exists"
 fi
