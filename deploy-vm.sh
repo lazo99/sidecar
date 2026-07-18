@@ -11,9 +11,12 @@ SERVICE_NAME="sidecar"
 # Step 0: Install bws CLI
 echo "📥 Installing Bitwarden Secrets Manager CLI..."
 if ! command -v bws &> /dev/null; then
-    curl -fsSL https://vault.bitwarden.com/download/sm/bws/linux | bash
+    # Try GitHub releases (more reliable)
+    BWS_VERSION=$(curl -s https://api.github.com/repos/bitwarden/sdk-sm/releases/latest | grep -oP '"tag_name": "v\K[^"]+')
+    curl -fsSL "https://github.com/bitwarden/sdk-sm/releases/download/v${BWS_VERSION}/bws-x86_64-unknown-linux-musl" -o bws
+    chmod +x bws
     sudo mv bws /usr/local/bin/
-    bws --version
+    bws --version || echo "⚠️  bws installed but version check failed"
 else
     echo "✓ bws already installed"
 fi
