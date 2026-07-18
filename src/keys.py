@@ -22,12 +22,12 @@ class KeyStore:
         if not token:
             raise ValueError("BITWARDEN_SM_TOKEN not set in environment")
 
-        settings = ClientSettings(
-            server_name="us",
-            api_url=os.getenv("BITWARDEN_API_URL", "https://api.bitwarden.us"),
+        # Initialize client with access token
+        # (SDK will auto-configure endpoints based on token domain)
+        client = BitwardenClient(
+            access_token=token,
+            api_url=os.getenv("BITWARDEN_API_URL"),
         )
-        client = BitwardenClient(settings=settings, access_token=token)
-        client.auth.login_access_token(access_token=token)
         return client
 
     def get_key(self, api_name: str) -> str:
