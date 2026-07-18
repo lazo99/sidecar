@@ -31,17 +31,21 @@ echo "🔐 Setting up environment..."
 if [ ! -f .env ]; then
     cp .env.example .env
 
-    # If BITWARDEN_SM_TOKEN is set as env var, use it
-    if [ -z "$BITWARDEN_SM_TOKEN" ]; then
+    # Try to read token from file (copied by deploy-to-vm.sh)
+    if [ -f ~/.secrets/bitwarden-token.txt ]; then
+        TOKEN=$(cat ~/.secrets/bitwarden-token.txt)
+        sed -i "s/BITWARDEN_SM_TOKEN=.*/BITWARDEN_SM_TOKEN=$TOKEN/" .env
+        echo "✓ BITWARDEN_SM_TOKEN loaded from ~/.secrets/bitwarden-token.txt"
+    # Otherwise check env var
+    elif [ -n "$BITWARDEN_SM_TOKEN" ]; then
+        sed -i "s/BITWARDEN_SM_TOKEN=.*/BITWARDEN_SM_TOKEN=$BITWARDEN_SM_TOKEN/" .env
+        echo "✓ BITWARDEN_SM_TOKEN configured from environment"
+    else
         echo ""
-        echo "⚠️  Edit .env and add your BITWARDEN_SM_TOKEN"
+        echo "⚠️  No token found. Edit .env and add BITWARDEN_SM_TOKEN"
         echo "   (Get it from https://vault.bitwarden.com/sm/)"
         echo ""
         read -p "Press Enter after editing .env..."
-    else
-        # Replace placeholder with actual token
-        sed -i "s/BITWARDEN_SM_TOKEN=.*/BITWARDEN_SM_TOKEN=$BITWARDEN_SM_TOKEN/" .env
-        echo "✓ BITWARDEN_SM_TOKEN configured from environment"
     fi
 else
     echo "✓ .env already exists"
