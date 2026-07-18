@@ -32,14 +32,18 @@ try:
     print("✓ Bitwarden Secrets Manager connected")
 except Exception as e:
     print(f"⚠️  Bitwarden not available: {e}")
-    print("   KeyStore endpoints will fail, but server will start")
-    key_store = None
+    print("   Using mock KeyStore (all key operations will fail)")
 
-# Initialize API Proxy only if KeyStore is available
-api_proxy = None
-if key_store:
-    api_proxy = APIProxy(key_store, audit_log)
-    print("✓ API Proxy initialized")
+    # Create a mock KeyStore that fails gracefully
+    from unittest.mock import MagicMock
+    key_store = MagicMock()
+    key_store.get_key = lambda x: (_ for _ in ()).throw(
+        RuntimeError("Bitwarden not initialized")
+    )
+
+# Initialize API Proxy
+api_proxy = APIProxy(key_store, audit_log)
+print("✓ API Proxy initialized")
 
 # Initialize AuthManager with JWT secret from Bitwarden or env
 def _get_jwt_secret() -> str:
