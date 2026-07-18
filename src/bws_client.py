@@ -1,13 +1,13 @@
-"""Bitwarden Secrets Manager CLI client."""
+"""Bitwarden Secrets Manager Python SDK client."""
 
-import json
 import os
-import subprocess
 from typing import Optional
+
+from bitwarden_sdk import BitwardenClient, ClientSettings
 
 
 class BWSClient:
-    """Interface to Bitwarden Secrets Manager via `bws` CLI."""
+    """Interface to Bitwarden Secrets Manager via Python SDK."""
 
     def __init__(self, access_token: Optional[str] = None):
         """Initialize BWS client.
@@ -20,6 +20,12 @@ class BWSClient:
         if not self.token:
             raise ValueError("BITWARDEN_SM_TOKEN not set in environment")
 
+        settings = ClientSettings(
+            server_name="us",
+            api_url=os.getenv("BITWARDEN_API_URL", "https://api.bitwarden.us"),
+        )
+        self.client = BitwardenClient(settings=settings, access_token=self.token)
+
     def get_secret(self, key: str) -> str:
         """Fetch a secret from Bitwarden Secrets Manager.
 
@@ -30,33 +36,23 @@ class BWSClient:
             Secret value
 
         Raises:
-            RuntimeError: If `bws` command fails or secret not found
+            RuntimeError: If secret not found or API call fails
         """
         try:
-            result = subprocess.run(
-                ["bws", "secret", "get", key],
-                env={**os.environ, "BWS_ACCESS_TOKEN": self.token},
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
+            # SDK returns secret object with attributes
+            secret = self.client.secrets.get(id=key)
+            if secret and hasattr(secret, 'value'):
+                return secret.value
 
-            if result.returncode != 0:
-                raise RuntimeError(f"bws failed: {result.stderr}")
+            # Fallback: try as a key name
+            secrets = self.client.secrets.list()
+            for s in secrets:
+                if s.key == key:
+                    return s.value
 
-            # bws returns JSON
-            data = json.loads(result.stdout)
-            return data.get("value", "")
-
-        except subprocess.TimeoutExpired:
-            raise RuntimeError(f"bws timeout fetching secret '{key}'")
-        except json.JSONDecodeError:
-            raise RuntimeError(f"Invalid response from bws: {result.stdout}")
-        except FileNotFoundError:
-            raise RuntimeError(
-                "bws CLI not found. Install: "
-                "curl -fsSL https://vault.bitwarden.com/download/sm/bws/linux | bash"
-            )
+            raise RuntimeError(f"Secret '{key}' not found in Bitwarden")
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch secret '{key}': {str(e)}")
 
     def list_secrets(self) -> list[str]:
         """List all secret keys in Bitwarden Secrets Manager.
@@ -65,19 +61,7 @@ class BWSClient:
             List of secret key names
         """
         try:
-            result = subprocess.run(
-                ["bws", "secret", "list"],
-                env={**os.environ, "BWS_ACCESS_TOKEN": self.token},
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-
-            if result.returncode != 0:
-                raise RuntimeError(f"bws failed: {result.stderr}")
-
-            data = json.loads(result.stdout)
-            return [s.get("key") for s in data.get("data", []) if s.get("key")]
-
-        except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
+            secrets = self.client.secrets.list()
+            return [s.key for s in secrets if hasattr(s, 'key')]
+        except Exception as e:
             raise RuntimeError(f"Failed to list secrets: {str(e)}")

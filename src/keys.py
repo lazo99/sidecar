@@ -3,7 +3,11 @@
 import os
 from typing import Optional
 
-from bitwarden_sdk import BitwardenClient, ClientSettings
+try:
+    from bitwarden_sdk import BitwardenClient, ClientSettings
+    BITWARDEN_AVAILABLE = True
+except ImportError:
+    BITWARDEN_AVAILABLE = False
 
 
 class KeyStore:
