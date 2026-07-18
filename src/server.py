@@ -3,6 +3,7 @@
 import os
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status, Header
 from pydantic import BaseModel
 
@@ -11,6 +12,9 @@ from .keys import KeyStore
 from .proxy import APIProxy
 from .audit import AuditLog
 from .bws_client import BWSClient
+
+# Load .env file
+load_dotenv()
 
 
 app = FastAPI(
