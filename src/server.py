@@ -11,7 +11,6 @@ from .auth import AuthManager
 from .keys import KeyStore
 from .proxy import APIProxy
 from .audit import AuditLog
-from .bws_client import BWSClient
 
 # Load .env file
 load_dotenv()
@@ -25,48 +24,14 @@ app = FastAPI(
 
 # Initialize components
 audit_log = AuditLog()
-
-# Try to initialize KeyStore, fall back if Bitwarden not available
-try:
-    key_store = KeyStore()
-    print("✓ Bitwarden Secrets Manager connected")
-except Exception as e:
-    print(f"⚠️  Bitwarden not available: {e}")
-    print("   Using mock KeyStore (all key operations will fail)")
-
-    # Create a mock KeyStore that fails gracefully
-    from unittest.mock import MagicMock
-    key_store = MagicMock()
-    key_store.get_key = lambda x: (_ for _ in ()).throw(
-        RuntimeError("Bitwarden not initialized")
-    )
-
-# Initialize API Proxy
+key_store = KeyStore()
 api_proxy = APIProxy(key_store, audit_log)
-print("✓ API Proxy initialized")
+print("✓ Sidecar initialized (API keys from env vars)")
 
-# Initialize AuthManager with JWT secret from Bitwarden or env
-def _get_jwt_secret() -> str:
-    """Fetch JWT secret from Bitwarden or environment."""
-    # Try Bitwarden first (preferred)
-    if os.getenv("BITWARDEN_SM_TOKEN"):
-        try:
-            bws = BWSClient()
-            secret = bws.get_secret("jwt-secret")
-            if secret:
-                print("✓ JWT secret loaded from Bitwarden")
-                return secret
-        except Exception as e:
-            print(f"⚠️  Failed to fetch JWT secret from Bitwarden: {e}")
-            print("   Falling back to JWT_SECRET_KEY env var")
-
-    # Fallback to env var (for testing or if Bitwarden unavailable)
-    secret = os.getenv("JWT_SECRET_KEY")
-    if not secret:
-        raise ValueError("JWT secret not found in Bitwarden or JWT_SECRET_KEY env var")
-    return secret
-
-jwt_secret = _get_jwt_secret()
+# Initialize AuthManager with JWT secret from env
+jwt_secret = os.getenv("JWT_SECRET_KEY")
+if not jwt_secret:
+    raise ValueError("JWT_SECRET_KEY not set in environment")
 auth_manager = AuthManager(secret_key=jwt_secret)
 
 

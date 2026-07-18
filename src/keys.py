@@ -1,37 +1,18 @@
-"""Key management via Bitwarden Secrets Manager."""
+"""Key management via environment variables."""
 
 import os
 from typing import Optional
 
-try:
-    from bitwarden_sdk import BitwardenClient, ClientSettings
-    BITWARDEN_AVAILABLE = True
-except ImportError:
-    BITWARDEN_AVAILABLE = False
-
 
 class KeyStore:
-    """Interface to Bitwarden Secrets Manager for secure key storage."""
+    """Interface to API keys stored as environment variables."""
 
     def __init__(self):
-        self.client = self._init_client()
-
-    def _init_client(self) -> BitwardenClient:
-        """Initialize Bitwarden client."""
-        token = os.getenv("BITWARDEN_SM_TOKEN")
-        if not token:
-            raise ValueError("BITWARDEN_SM_TOKEN not set in environment")
-
-        # Initialize client with access token
-        # (SDK will auto-configure endpoints based on token domain)
-        client = BitwardenClient(
-            access_token=token,
-            api_url=os.getenv("BITWARDEN_API_URL"),
-        )
-        return client
+        """Initialize KeyStore. Keys are read from env vars."""
+        self.keys_loaded = True
 
     def get_key(self, api_name: str) -> str:
-        """Retrieve API key from Bitwarden Secrets Manager.
+        """Retrieve API key from environment.
 
         Args:
             api_name: API identifier (e.g., 'claude', 'openai')
@@ -40,43 +21,43 @@ class KeyStore:
             API key string
 
         Raises:
-            KeyError: If key not found in Bitwarden
+            KeyError: If key not found
         """
-        try:
-            secret = self.client.secrets.get(key=api_name)
-            if not secret:
-                raise KeyError(f"Secret '{api_name}' not found in Bitwarden")
-            return secret.value
-        except Exception as e:
-            raise KeyError(f"Failed to retrieve key for '{api_name}': {str(e)}")
+        # Look for env var like API_KEY_CLAUDE, API_KEY_OPENAI, etc.
+        env_var = f"API_KEY_{api_name.upper()}"
+        key = os.getenv(env_var)
+        if not key:
+            raise KeyError(
+                f"API key for '{api_name}' not found. "
+                f"Set {env_var} environment variable."
+            )
+        return key
 
     def set_key(self, api_name: str, key: str) -> None:
-        """Store or update an API key in Bitwarden Secrets Manager.
+        """Store an API key (not implemented for env vars).
 
-        Args:
-            api_name: API identifier
-            key: API key value
+        To add keys: Edit .env and set API_KEY_{API_NAME}=<key>
         """
-        try:
-            self.client.secrets.create(key=api_name, value=key)
-        except Exception as e:
-            raise RuntimeError(f"Failed to store key for '{api_name}': {str(e)}")
+        raise NotImplementedError(
+            "Cannot set keys via API. Edit .env and set "
+            f"API_KEY_{api_name.upper()}=<key>, then restart sidecar."
+        )
 
     def delete_key(self, api_name: str) -> None:
-        """Remove an API key from Bitwarden Secrets Manager.
+        """Remove an API key (not implemented for env vars).
 
-        Args:
-            api_name: API identifier
+        To remove keys: Edit .env and remove API_KEY_{API_NAME}
         """
-        try:
-            self.client.secrets.delete(key=api_name)
-        except Exception as e:
-            raise RuntimeError(f"Failed to delete key for '{api_name}': {str(e)}")
+        raise NotImplementedError(
+            "Cannot delete keys via API. Edit .env and remove "
+            f"API_KEY_{api_name.upper()}, then restart sidecar."
+        )
 
     def list_keys(self) -> list[str]:
-        """List all available API key names."""
-        try:
-            secrets = self.client.secrets.list()
-            return [s.key for s in secrets]
-        except Exception as e:
-            raise RuntimeError(f"Failed to list keys: {str(e)}")
+        """List all API keys available in environment."""
+        keys = []
+        for key in os.environ:
+            if key.startswith("API_KEY_"):
+                api_name = key.replace("API_KEY_", "").lower()
+                keys.append(api_name)
+        return keys
