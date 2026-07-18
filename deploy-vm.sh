@@ -55,6 +55,7 @@ chmod 600 .env
 
 # Step 4: Create systemd service
 echo "🔧 Creating systemd service..."
+mkdir -p $INSTALL_DIR/logs
 sudo tee /etc/systemd/system/sidecar.service > /dev/null <<EOF
 [Unit]
 Description=Sidecar API Key Vault
@@ -69,10 +70,6 @@ EnvironmentFile=$INSTALL_DIR/.env
 ExecStart=$INSTALL_DIR/venv/bin/python -m src.server
 Restart=on-failure
 RestartSec=10
-
-NoNewPrivileges=true
-PrivateTmp=true
-ReadWritePaths=$INSTALL_DIR/logs
 
 [Install]
 WantedBy=multi-user.target
